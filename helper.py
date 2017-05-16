@@ -1,250 +1,239 @@
-<!DOCTYPE HTML>
-<html>
+import math
+import os
+import hashlib
+from urllib.request import urlretrieve
+import zipfile
+import gzip
+import shutil
 
-<head>
-    <meta charset="utf-8">
-
-    <title>helper.py (editing)</title>
-    <link rel="shortcut icon" type="image/x-icon" href="/static/base/images/favicon.ico?v=97c6417ed01bdc0ae3ef32ae4894fd03">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <link rel="stylesheet" href="/static/components/jquery-ui/themes/smoothness/jquery-ui.min.css?v=9b2c8d3489227115310662a343fce11c" type="text/css" />
-    <link rel="stylesheet" href="/static/components/jquery-typeahead/dist/jquery.typeahead.min.css?v=7afb461de36accb1aa133a1710f5bc56" type="text/css" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
-    
-<link rel="stylesheet" href="/static/components/codemirror/lib/codemirror.css?v=f25e9a9159e54b423b5a8dc4b1ab5c6e">
-<link rel="stylesheet" href="/static/components/codemirror/addon/dialog/dialog.css?v=c89dce10b44d2882a024e7befc2b63f5">
-
-    <link rel="stylesheet" href="/static/style/style.min.css?v=974839a888beb55bbba87883fafd90fa" type="text/css"/>
-    
-
-    <link rel="stylesheet" href="/custom/custom.css" type="text/css" />
-    <script src="/static/components/es6-promise/promise.min.js?v=f004a16cb856e0ff11781d01ec5ca8fe" type="text/javascript" charset="utf-8"></script>
-    <script src="/static/components/requirejs/require.js?v=6da8be361b9ee26c5e721e76c6d4afce" type="text/javascript" charset="utf-8"></script>
-    <script>
-      require.config({
-          
-          urlArgs: "v=20170515162033",
-          
-          baseUrl: '/static/',
-          paths: {
-            'auth/js/main': 'auth/js/main.min',
-            custom : '/custom',
-            nbextensions : '/nbextensions',
-            kernelspecs : '/kernelspecs',
-            underscore : 'components/underscore/underscore-min',
-            backbone : 'components/backbone/backbone-min',
-            jquery: 'components/jquery/jquery.min',
-            bootstrap: 'components/bootstrap/js/bootstrap.min',
-            bootstraptour: 'components/bootstrap-tour/build/js/bootstrap-tour.min',
-            'jquery-ui': 'components/jquery-ui/ui/minified/jquery-ui.min',
-            moment: 'components/moment/moment',
-            codemirror: 'components/codemirror',
-            termjs: 'components/xterm.js/dist/xterm',
-            typeahead: 'components/jquery-typeahead/dist/jquery.typeahead.min',
-          },
-	  map: { // for backward compatibility
-	    "*": {
-		"jqueryui": "jquery-ui",
-	    }
-	  },
-          shim: {
-            typeahead: {
-              deps: ["jquery"],
-              exports: "typeahead"
-            },
-            underscore: {
-              exports: '_'
-            },
-            backbone: {
-              deps: ["underscore", "jquery"],
-              exports: "Backbone"
-            },
-            bootstrap: {
-              deps: ["jquery"],
-              exports: "bootstrap"
-            },
-            bootstraptour: {
-              deps: ["bootstrap"],
-              exports: "Tour"
-            },
-            "jquery-ui": {
-              deps: ["jquery"],
-              exports: "$"
-            }
-          },
-          waitSeconds: 30,
-      });
-
-      require.config({
-          map: {
-              '*':{
-                'contents': 'services/contents',
-              }
-          }
-      });
-
-      define("bootstrap", function () {
-          return window.$;
-      });
-
-      define("jquery", function () {
-          return window.$;
-      });
-
-      define("jqueryui", function () {
-          return window.$;
-      });
-
-      define("jquery-ui", function () {
-          return window.$;
-      });
-      // error-catching custom.js shim.
-      define("custom", function (require, exports, module) {
-          try {
-              var custom = require('custom/custom');
-              console.debug('loaded custom.js');
-              return custom;
-          } catch (e) {
-              console.error("error loading custom.js", e);
-              return {};
-          }
-      })
-    </script>
-
-    
-    
-
-</head>
-
-<body class="edit_app "
- 
-data-base-url="/"
-data-file-path="helper.py"
-
-  
- 
-
->
-
-<noscript>
-    <div id='noscript'>
-      Jupyter Notebook requires JavaScript.<br>
-      Please enable it to proceed.
-  </div>
-</noscript>
-
-<div id="header">
-  <div id="header-container" class="container">
-  <div id="ipython_notebook" class="nav navbar-brand pull-left"><a href="/tree" title='dashboard'><img src='/static/base/images/logo.png?v=641991992878ee24c6f3826e81054a0f' alt='Jupyter Notebook'/></a></div>
-
-  
-  
-  
-
-    <span id="login_widget">
-      
-    </span>
-
-  
-
-  
-
-  
-
-<span id="save_widget" class="pull-left save_widget">
-    <span class="filename"></span>
-    <span class="last_modified"></span>
-</span>
+import numpy as np
+from PIL import Image
+from tqdm import tqdm
 
 
-  </div>
-  <div class="header-bar"></div>
-
-  
-
-<div id="menubar-container" class="container">
-  <div id="menubar">
-    <div id="menus" class="navbar navbar-default" role="navigation">
-      <div class="container-fluid">
-          <p  class="navbar-text indicator_area">
-          <span id="current-mode" >current mode</span>
-          </p>
-        <button type="button" class="btn btn-default navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
-          <i class="fa fa-bars"></i>
-          <span class="navbar-text">Menu</span>
-        </button>
-        <ul class="nav navbar-nav navbar-right">
-          <li id="notification_area"></li>
-        </ul>
-        <div class="navbar-collapse collapse">
-          <ul class="nav navbar-nav">
-            <li class="dropdown"><a href="#" class="dropdown-toggle" data-toggle="dropdown">File</a>
-              <ul id="file-menu" class="dropdown-menu">
-                <li id="new-file"><a href="#">New</a></li>
-                <li id="save-file"><a href="#">Save</a></li>
-                <li id="rename-file"><a href="#">Rename</a></li>
-                <li id="download-file"><a href="#">Download</a></li>
-              </ul>
-            </li>
-            <li class="dropdown"><a href="#" class="dropdown-toggle" data-toggle="dropdown">Edit</a>
-              <ul id="edit-menu" class="dropdown-menu">
-                <li id="menu-find"><a href="#">Find</a></li>
-                <li id="menu-replace"><a href="#">Find &amp; Replace</a></li>
-                <li class="divider"></li>
-                <li class="dropdown-header">Key Map</li>
-                <li id="menu-keymap-default"><a href="#">Default<i class="fa"></i></a></li>
-                <li id="menu-keymap-sublime"><a href="#">Sublime Text<i class="fa"></i></a></li>
-                <li id="menu-keymap-vim"><a href="#">Vim<i class="fa"></i></a></li>
-                <li id="menu-keymap-emacs"><a href="#">emacs<i class="fa"></i></a></li>
-              </ul>
-            </li>
-            <li class="dropdown"><a href="#" class="dropdown-toggle" data-toggle="dropdown">View</a>
-              <ul id="view-menu" class="dropdown-menu">
-              <li id="toggle_header" title="Show/Hide the logo and notebook title (above menu bar)">
-              <a href="#">Toggle Header</a></li>
-              <li id="menu-line-numbers"><a href="#">Toggle Line Numbers</a></li>
-              </ul>
-            </li>
-            <li class="dropdown"><a href="#" class="dropdown-toggle" data-toggle="dropdown">Language</a>
-              <ul id="mode-menu" class="dropdown-menu">
-              </ul>
-            </li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="lower-header-bar"></div>
+def _read32(bytestream):
+    """
+    Read 32-bit integer from bytesteam
+    :param bytestream: A bytestream
+    :return: 32-bit integer
+    """
+    dt = np.dtype(np.uint32).newbyteorder('>')
+    return np.frombuffer(bytestream.read(4), dtype=dt)[0]
 
 
-</div>
-
-<div id="site">
-
-
-<div id="texteditor-backdrop">
-<div id="texteditor-container" class="container"></div>
-</div>
-
-
-</div>
-
-
+def _unzip(save_path, _, database_name, data_path):
+    """
+    Unzip wrapper with the same interface as _ungzip
+    :param save_path: The path of the gzip files
+    :param database_name: Name of database
+    :param data_path: Path to extract to
+    :param _: HACK - Used to have to same interface as _ungzip
+    """
+    print('Extracting {}...'.format(database_name))
+    with zipfile.ZipFile(save_path) as zf:
+        zf.extractall(data_path)
 
 
+def _ungzip(save_path, extract_path, database_name, _):
+    """
+    Unzip a gzip file and extract it to extract_path
+    :param save_path: The path of the gzip files
+    :param extract_path: The location to extract the data to
+    :param database_name: Name of database
+    :param _: HACK - Used to have to same interface as _unzip
+    """
+    # Get data from save_path
+    with open(save_path, 'rb') as f:
+        with gzip.GzipFile(fileobj=f) as bytestream:
+            magic = _read32(bytestream)
+            if magic != 2051:
+                raise ValueError('Invalid magic number {} in file: {}'.format(magic, f.name))
+            num_images = _read32(bytestream)
+            rows = _read32(bytestream)
+            cols = _read32(bytestream)
+            buf = bytestream.read(rows * cols * num_images)
+            data = np.frombuffer(buf, dtype=np.uint8)
+            data = data.reshape(num_images, rows, cols)
+
+    # Save data to extract_path
+    for image_i, image in enumerate(
+            tqdm(data, unit='File', unit_scale=True, miniters=1, desc='Extracting {}'.format(database_name))):
+        Image.fromarray(image, 'L').save(os.path.join(extract_path, 'image_{}.jpg'.format(image_i)))
 
 
-    
+def get_image(image_path, width, height, mode):
+    """
+    Read image from image_path
+    :param image_path: Path of image
+    :param width: Width of image
+    :param height: Height of image
+    :param mode: Mode of image
+    :return: Image data
+    """
+    image = Image.open(image_path)
+
+    if image.size != (width, height):  # HACK - Check if image is from the CELEBA dataset
+        # Remove most pixels that aren't part of a face
+        face_width = face_height = 108
+        j = (image.size[0] - face_width) // 2
+        i = (image.size[1] - face_height) // 2
+        image = image.crop([j, i, j + face_width, i + face_height])
+        image = image.resize([width, height], Image.BILINEAR)
+
+    return np.array(image.convert(mode))
 
 
+def get_batch(image_files, width, height, mode):
+    data_batch = np.array(
+        [get_image(sample_file, width, height, mode) for sample_file in image_files]).astype(np.float32)
 
-    <script src="/static/edit/js/main.min.js?v=3f26c490a03e64a774b6f266300dac6e" type="text/javascript" charset="utf-8"></script>
+    # Make sure the images are in 4 dimensions
+    if len(data_batch.shape) < 4:
+        data_batch = data_batch.reshape(data_batch.shape + (1,))
+
+    return data_batch
 
 
+def images_square_grid(images, mode):
+    """
+    Save images as a square grid
+    :param images: Images to be used for the grid
+    :param mode: The mode to use for images
+    :return: Image of images in a square grid
+    """
+    # Get maximum size for square grid of images
+    save_size = math.floor(np.sqrt(images.shape[0]))
 
-</body>
+    # Scale to 0-255
+    images = (((images - images.min()) * 255) / (images.max() - images.min())).astype(np.uint8)
 
-</html>
+    # Put images in a square arrangement
+    images_in_square = np.reshape(
+            images[:save_size*save_size],
+            (save_size, save_size, images.shape[1], images.shape[2], images.shape[3]))
+    if mode == 'L':
+        images_in_square = np.squeeze(images_in_square, 4)
+
+    # Combine images to grid image
+    new_im = Image.new(mode, (images.shape[1] * save_size, images.shape[2] * save_size))
+    for col_i, col_images in enumerate(images_in_square):
+        for image_i, image in enumerate(col_images):
+            im = Image.fromarray(image, mode)
+            new_im.paste(im, (col_i * images.shape[1], image_i * images.shape[2]))
+
+    return new_im
+
+
+def download_extract(database_name, data_path):
+    """
+    Download and extract database
+    :param database_name: Database name
+    """
+    DATASET_CELEBA_NAME = 'celeba'
+    DATASET_MNIST_NAME = 'mnist'
+
+    if database_name == DATASET_CELEBA_NAME:
+        url = 'https://s3-us-west-1.amazonaws.com/udacity-dlnfd/datasets/celeba.zip'
+        hash_code = '00d2c5bc6d35e252742224ab0c1e8fcb'
+        extract_path = os.path.join(data_path, 'img_align_celeba')
+        save_path = os.path.join(data_path, 'celeba.zip')
+        extract_fn = _unzip
+    elif database_name == DATASET_MNIST_NAME:
+        url = 'http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz'
+        hash_code = 'f68b3c2dcbeaaa9fbdd348bbdeb94873'
+        extract_path = os.path.join(data_path, 'mnist')
+        save_path = os.path.join(data_path, 'train-images-idx3-ubyte.gz')
+        extract_fn = _ungzip
+
+    if os.path.exists(extract_path):
+        print('Found {} Data'.format(database_name))
+        return
+
+    if not os.path.exists(data_path):
+        os.makedirs(data_path)
+
+    if not os.path.exists(save_path):
+        with DLProgress(unit='B', unit_scale=True, miniters=1, desc='Downloading {}'.format(database_name)) as pbar:
+            urlretrieve(
+                url,
+                save_path,
+                pbar.hook)
+
+    assert hashlib.md5(open(save_path, 'rb').read()).hexdigest() == hash_code, \
+        '{} file is corrupted.  Remove the file and try again.'.format(save_path)
+
+    os.makedirs(extract_path)
+    try:
+        extract_fn(save_path, extract_path, database_name, data_path)
+    except Exception as err:
+        shutil.rmtree(extract_path)  # Remove extraction folder if there is an error
+        raise err
+
+    # Remove compressed data
+    os.remove(save_path)
+
+
+class Dataset(object):
+    """
+    Dataset
+    """
+    def __init__(self, dataset_name, data_files):
+        """
+        Initalize the class
+        :param dataset_name: Database name
+        :param data_files: List of files in the database
+        """
+        DATASET_CELEBA_NAME = 'celeba'
+        DATASET_MNIST_NAME = 'mnist'
+        IMAGE_WIDTH = 28
+        IMAGE_HEIGHT = 28
+
+        if dataset_name == DATASET_CELEBA_NAME:
+            self.image_mode = 'RGB'
+            image_channels = 3
+
+        elif dataset_name == DATASET_MNIST_NAME:
+            self.image_mode = 'L'
+            image_channels = 1
+
+        self.data_files = data_files
+        self.shape = len(data_files), IMAGE_WIDTH, IMAGE_HEIGHT, image_channels
+
+    def get_batches(self, batch_size):
+        """
+        Generate batches
+        :param batch_size: Batch Size
+        :return: Batches of data
+        """
+        IMAGE_MAX_VALUE = 255
+
+        current_index = 0
+        while current_index + batch_size <= self.shape[0]:
+            data_batch = get_batch(
+                self.data_files[current_index:current_index + batch_size],
+                *self.shape[1:3],
+                self.image_mode)
+
+            current_index += batch_size
+
+            yield data_batch / IMAGE_MAX_VALUE - 0.5
+
+
+class DLProgress(tqdm):
+    """
+    Handle Progress Bar while Downloading
+    """
+    last_block = 0
+
+    def hook(self, block_num=1, block_size=1, total_size=None):
+        """
+        A hook function that will be called once on establishment of the network connection and
+        once after each block read thereafter.
+        :param block_num: A count of blocks transferred so far
+        :param block_size: Block size in bytes
+        :param total_size: The total size of the file. This may be -1 on older FTP servers which do not return
+                            a file size in response to a retrieval request.
+        """
+        self.total = total_size
+        self.update((block_num - self.last_block) * block_size)
+        self.last_block = block_num
